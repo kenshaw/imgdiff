@@ -37,6 +37,7 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dc := diffColor.ToRGB()
+			clr := color.RGBA{R: dc.R, G: dc.G, B: dc.B}
 			// open first image
 			a, err := imgconv.Open(args[0])
 			if err != nil {
@@ -51,7 +52,7 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 				var out image.Image
 				if _, err := pixelmatch.MatchPixel(
 					a, b,
-					pixelmatch.DiffColor(color.RGBA{R: dc.R, G: dc.G, B: dc.B}),
+					pixelmatch.DiffColor(clr),
 					pixelmatch.EnableDiffMask,
 					pixelmatch.WriteTo(&out),
 				); err != nil {
