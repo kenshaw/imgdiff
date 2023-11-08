@@ -3,12 +3,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	"image/color/palette"
+	"image/draw"
+	"io"
 	"os"
 
-	"github.com/mattn/go-sixel"
+	"github.com/BourgeoisBear/rasterm"
 	"github.com/orisano/pixelmatch"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -36,6 +40,10 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 		Version: appVersion,
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			r, _, ok := renderer()
+			if !ok {
+				return errors.New("terminal does not support graphics")
+			}
 			dc := diffColor.ToRGB()
 			clr := color.RGBA{R: dc.R, G: dc.G, B: dc.B}
 			// open first image
@@ -49,16 +57,16 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 				if err != nil {
 					return fmt.Errorf("unable to open %s: %v", s, err)
 				}
-				var out image.Image
+				var img image.Image
 				if _, err := pixelmatch.MatchPixel(
 					a, b,
 					pixelmatch.DiffColor(clr),
 					pixelmatch.EnableDiffMask,
-					pixelmatch.WriteTo(&out),
+					pixelmatch.WriteTo(&img),
 				); err != nil {
 					return fmt.Errorf("unable to compare %s with %s: %v", args[0], s, err)
 				}
-				if err := sixel.NewEncoder(os.Stdout).Encode(out); err != nil {
+				if err := r(os.Stdout, palettize(img)); err != nil {
 					return fmt.Errorf("unable to write comparison of %s with %s: %v", args[0], s, err)
 				}
 			}
@@ -71,6 +79,37 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 	c.SetArgs(cliargs[1:])
 	c.SilenceErrors, c.SilenceUsage = true, false
 	return c.ExecuteContext(ctx)
+}
+
+func renderer() (func(io.Writer, image.Image) error, string, bool) {
+	var s rasterm.Settings
+	switch sixel, _ := rasterm.IsSixelCapable(); {
+	case rasterm.IsTmuxScreen():
+		return nil, "", false
+	case rasterm.IsTermKitty():
+		return s.KittyWriteImage, "kitty", true
+	case rasterm.IsTermItermWez():
+		return s.ItermWriteImage, "iterm", true
+	case sixel:
+		return func(w io.Writer, img image.Image) error {
+			pi, ok := img.(*image.Paletted)
+			if !ok {
+				return errors.New("invalid image")
+			}
+			return s.SixelWriteImage(w, pi)
+		}, "sixel", true
+	}
+	return nil, "", false
+}
+
+func palettize(src image.Image) *image.Paletted {
+	if pi, ok := src.(*image.Paletted); ok {
+		return pi
+	}
+	b := src.Bounds()
+	img := image.NewPaletted(b, palette.Plan9)
+	draw.FloydSteinberg.Draw(img, b, src, image.Point{})
+	return img
 }
 
 type Color struct {
