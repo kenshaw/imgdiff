@@ -45,7 +45,7 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 				return errors.New("terminal does not support graphics")
 			}
 			dc := diffColor.ToRGB()
-			clr := color.RGBA{R: dc.R, G: dc.G, B: dc.B}
+			clr := color.RGBA{R: dc.R, G: dc.G, B: dc.B, A: 0xff}
 			// open first image
 			a, err := imgconv.Open(args[0])
 			if err != nil {
@@ -66,8 +66,10 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 				); err != nil {
 					return fmt.Errorf("unable to compare %s with %s: %v", args[0], s, err)
 				}
-				if err := r(os.Stdout, palettize(img)); err != nil {
-					return fmt.Errorf("unable to write comparison of %s with %s: %v", args[0], s, err)
+				if img != nil {
+					if err := r(os.Stdout, palettize(img)); err != nil {
+						return fmt.Errorf("unable to write comparison of %s with %s: %v", args[0], s, err)
+					}
 				}
 			}
 			return nil
