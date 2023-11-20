@@ -1,2 +1,9 @@
 /imgdiff
 /imgdiff.exe
+
+*.png
+*.jpg
+*.jpeg
+*.txt
+*.yml
+*.yaml

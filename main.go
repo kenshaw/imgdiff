@@ -3,16 +3,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
-	"image/color/palette"
-	"image/draw"
-	"io"
 	"os"
 
-	"github.com/BourgeoisBear/rasterm"
+	"github.com/kenshaw/rasterm"
 	"github.com/orisano/pixelmatch"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -40,9 +36,8 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 		Version: appVersion,
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, ok := renderer()
-			if !ok {
-				return errors.New("terminal does not support graphics")
+			if !rasterm.Available() {
+				return rasterm.ErrTermGraphicsNotAvailable
 			}
 			dc := diffColor.ToRGB()
 			clr := color.RGBA{R: dc.R, G: dc.G, B: dc.B, A: 0xff}
@@ -67,7 +62,7 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 					return fmt.Errorf("unable to compare %s with %s: %v", args[0], s, err)
 				}
 				if img != nil {
-					if err := r(os.Stdout, img); err != nil {
+					if err := rasterm.Encode(os.Stdout, img); err != nil {
 						return fmt.Errorf("unable to write comparison of %s with %s: %v", args[0], s, err)
 					}
 				}
@@ -81,31 +76,6 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 	c.SetArgs(cliargs[1:])
 	c.SilenceErrors, c.SilenceUsage = true, false
 	return c.ExecuteContext(ctx)
-}
-
-func renderer() (func(io.Writer, image.Image) error, string, bool) {
-	var s rasterm.Settings
-	switch {
-	case rasterm.IsTmuxScreen():
-		return nil, "", false
-	case rasterm.IsTermKitty():
-		return s.KittyWriteImage, "kitty", true
-	case rasterm.IsTermItermWez():
-		return s.ItermWriteImage, "iterm", true
-	default:
-		if ok, _ := rasterm.IsSixelCapable(); ok {
-			return func(w io.Writer, src image.Image) error {
-				if _, ok := src.(*image.Paletted); !ok {
-					b := src.Bounds()
-					img := image.NewPaletted(b, palette.Plan9)
-					draw.FloydSteinberg.Draw(img, b, src, image.Point{})
-					src = img
-				}
-				return s.SixelWriteImage(w, src.(*image.Paletted))
-			}, "sixel", true
-		}
-	}
-	return nil, "", false
 }
 
 type Color struct {
