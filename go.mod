@@ -3,7 +3,7 @@ module github.com/kenshaw/imgdiff
 go 1.21.3
 
 require (
-	github.com/kenshaw/colors v0.1.0
+	github.com/kenshaw/colors v0.1.1
 	github.com/kenshaw/rasterm v0.1.10
 	github.com/orisano/pixelmatch v0.0.0-20230914042517-fa304d1dc785
 	github.com/spf13/cobra v1.8.0
