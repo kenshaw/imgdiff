@@ -5,15 +5,13 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/color"
 	"os"
 
+	"github.com/kenshaw/colors"
 	"github.com/kenshaw/rasterm"
 	"github.com/orisano/pixelmatch"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/sunshineplan/imgconv"
-	"gopkg.in/go-playground/colors.v1"
 )
 
 var (
@@ -29,7 +27,7 @@ func main() {
 }
 
 func run(ctx context.Context, appName, appVersion string, cliargs []string) error {
-	var diffColor colors.Color = colors.FromStdColor(color.RGBA{R: 255})
+	diff := colors.Red.Color()
 	c := &cobra.Command{
 		Use:     appName + " [flags] <image1> <image2> [image3, ..., imageN]",
 		Short:   appName + ", a image diff tool",
@@ -39,8 +37,6 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 			if !rasterm.Available() {
 				return rasterm.ErrTermGraphicsNotAvailable
 			}
-			dc := diffColor.ToRGB()
-			clr := color.RGBA{R: dc.R, G: dc.G, B: dc.B, A: 0xff}
 			// open first image
 			a, err := imgconv.Open(args[0])
 			if err != nil {
@@ -55,7 +51,7 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 				var img image.Image
 				if _, err := pixelmatch.MatchPixel(
 					a, b,
-					pixelmatch.DiffColor(clr),
+					pixelmatch.DiffColor(diff),
 					pixelmatch.EnableDiffMask,
 					pixelmatch.WriteTo(&img),
 				); err != nil {
@@ -70,34 +66,10 @@ func run(ctx context.Context, appName, appVersion string, cliargs []string) erro
 			return nil
 		},
 	}
-	c.Flags().Var(NewColor(&diffColor), "diff-color", "diff color")
+	c.Flags().Var(diff.Pflag(), "diff-color", "diff color")
 	c.SetVersionTemplate("{{ .Name }} {{ .Version }}\n")
 	c.InitDefaultHelpCmd()
 	c.SetArgs(cliargs[1:])
 	c.SilenceErrors, c.SilenceUsage = true, false
 	return c.ExecuteContext(ctx)
-}
-
-type Color struct {
-	c *colors.Color
-}
-
-func NewColor(c *colors.Color) pflag.Value {
-	return Color{
-		c: c,
-	}
-}
-
-func (c Color) String() string {
-	return (*c.c).String()
-}
-
-func (c Color) Set(s string) error {
-	var err error
-	*c.c, err = colors.Parse(s)
-	return err
-}
-
-func (c Color) Type() string {
-	return "color"
 }
